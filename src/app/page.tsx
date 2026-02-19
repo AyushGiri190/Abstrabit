@@ -6,19 +6,21 @@ import { useRouter } from "next/navigation"
 
 export default function Home() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(true) // Initial session check
+  const [signingIn, setSigningIn] = useState(false) // Disable button while signing in
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
-        router.push("/bookmarks") // redirect logged-in users
+        router.push("/bookmarks") // Redirect logged-in users
       }
       setLoading(false)
-    })
+    }
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    checkSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         router.push("/bookmarks")
       }
@@ -28,18 +30,33 @@ export default function Home() {
   }, [router])
 
   const signIn = async () => {
-    await supabase.auth.signInWithOAuth({ provider: "google" })
+    setSigningIn(true)
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({ provider: "google" })
+      if (error) throw error
+    } catch (err: any) {
+      console.error("Sign-in error:", err.message)
+      alert("Failed to sign in. Please try again.")
+    } finally {
+      setSigningIn(false)
+    }
   }
 
-  if (loading) return <p className="text-center mt-40">Checking session...</p>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <p className="text-gray-600 text-lg">Checking session...</p>
+    </div>
+  )
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+      <h1 className="text-3xl font-bold mb-8 text-gray-800">Welcome to Bookmarks App</h1>
       <button
         onClick={signIn}
-        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition"
+        disabled={signingIn}
+        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold shadow-md transition disabled:opacity-50"
       >
-        Sign in with Google
+        {signingIn ? "Signing in..." : "Sign in with Google"}
       </button>
     </div>
   )
